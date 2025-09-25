@@ -10,6 +10,7 @@ import useFace from '../../../hooks/demo/use-face';
 import useHover from '../../../hooks/demo/use-hover';
 import useTilt from '../../../hooks/demo/use-tilt';
 import { useLiveAPIContext } from '../../../contexts/LiveAPIContext';
+import { Emotion } from '@/lib/sentiment'; // Import the Emotion type
 
 // Minimum volume level that indicates audio output is occurring
 const AUDIO_OUTPUT_DETECTION_THRESHOLD = 0.05;
@@ -17,6 +18,7 @@ const AUDIO_OUTPUT_DETECTION_THRESHOLD = 0.05;
 // Amount of delay between end of audio output and setting talking state to false
 const TALKING_STATE_COOLDOWN_MS = 2000;
 
+// Add emotion to the component's props
 type BasicFaceProps = {
   /** The canvas element on which to render the face. */
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -24,6 +26,7 @@ type BasicFaceProps = {
   radius?: number;
   /** The color of the face. */
   color?: string;
+  emotion?: Emotion; // This prop is now passed from KeynoteCompanion
 };
 
 export default function BasicFace({
@@ -31,25 +34,31 @@ export default function BasicFace({
   radius = 250,
   color,
 }: BasicFaceProps) {
-  // Fix: Changed NodeJS.Timeout to ReturnType<typeof setTimeout> for browser compatibility and made it nullable.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Audio output volume
-  const { volume } = useLiveAPIContext();
+  // Get all the new reactive states from our context
+  const { volume, userVolume, emotion, listeningEmotion } = useLiveAPIContext();
 
-  // Talking state
+  // State for when the AI is talking
   const [isTalking, setIsTalking] = useState(false);
+  // State for when the user is talking (listening)
+  const [isListening, setIsListening] = useState(false);
 
   const [scale, setScale] = useState(0.1);
 
-  // Face state
+  // Face state from custom hooks
   const { eyeScale, mouthScale } = useFace();
   const hoverPosition = useHover();
+
+  // The tilt animation is now active if the agent is talking OR listening
   const tiltAngle = useTilt({
     maxAngle: 5,
     speed: 0.075,
-    isActive: isTalking,
+    isActive: isTalking || isListening,
   });
+
+  // Decide which emotion to show: prioritize the agent's own emotion while it's talking.
+  const displayEmotion = isTalking ? emotion : listeningEmotion;
 
   useEffect(() => {
     function calculateScale() {
@@ -60,19 +69,27 @@ export default function BasicFace({
     return () => window.removeEventListener('resize', calculateScale);
   }, []);
 
-  // Detect whether the agent is talking based on audio output volume
-  // Set talking state when volume is detected
+  // Detect whether the agent is talking based on its output volume
   useEffect(() => {
     if (volume > AUDIO_OUTPUT_DETECTION_THRESHOLD) {
       setIsTalking(true);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      // Enforce a slight delay between end of audio output and setting talking state to false
       timeoutRef.current = setTimeout(
         () => setIsTalking(false),
         TALKING_STATE_COOLDOWN_MS
       );
     }
   }, [volume]);
+
+  // Detect whether the user is talking based on their microphone volume
+  useEffect(() => {
+    const USER_AUDIO_THRESHOLD = 0.01; // A small threshold to ignore background noise
+    if (userVolume > USER_AUDIO_THRESHOLD) {
+      setIsListening(true);
+    } else {
+      setIsListening(false);
+    }
+  }, [userVolume]);
 
   // Render the face on the canvas
   useEffect(() => {
@@ -84,8 +101,9 @@ export default function BasicFace({
     if (!ctx) {
       return;
     }
-    renderBasicFace({ ctx, mouthScale, eyeScale, color });
-  }, [canvasRef, volume, eyeScale, mouthScale, color, scale]);
+    // Pass the final displayEmotion to the render function
+    renderBasicFace({ ctx, mouthScale, eyeScale, color, emotion: displayEmotion });
+  }, [canvasRef, eyeScale, mouthScale, color, scale, displayEmotion]);
 
   return (
     <canvas

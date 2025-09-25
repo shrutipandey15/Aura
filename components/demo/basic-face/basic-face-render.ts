@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+import { Emotion } from "@/lib/sentiment";
+
 type BasicFaceProps = {
   ctx: CanvasRenderingContext2D;
   mouthScale: number;
   eyeScale: number;
   color?: string;
+  emotion?: Emotion;
 };
 
 /**
@@ -19,6 +22,7 @@ export function renderBasicFace(props: BasicFaceProps) {
     eyeScale: eyesOpenness,
     mouthScale: mouthOpenness,
     color = '#FFFFFF',
+    emotion = 'neutral',
   } = props;
   const { width, height } = ctx.canvas;
   const centerX = width / 2;
@@ -38,6 +42,7 @@ export function renderBasicFace(props: BasicFaceProps) {
   // Draw features
   ctx.translate(centerX, centerY);
   ctx.fillStyle = 'black';
+  ctx.strokeStyle = 'black';
 
   const eyeOffsetY = radius * -0.15;
   const mouthOffsetY = radius * 0.45;
@@ -71,19 +76,34 @@ export function renderBasicFace(props: BasicFaceProps) {
   ctx.fill();
 
   // Mouth
-  const mouthWidth = radius * 0.5;
+ const mouthWidth = radius * 0.5;
   const mouthHeight = radius * 0.08 + radius * 0.3 * mouthOpenness;
   ctx.beginPath();
-  ctx.ellipse(
-    0,
-    mouthOffsetY,
-    mouthWidth / 2,
-    mouthHeight / 2,
-    0,
-    0,
-    Math.PI * 2
-  );
-  ctx.fill();
+
+  // Change mouth shape based on emotion
+  if (emotion === 'happy') {
+    // Draw an upward arc for a smile
+    ctx.arc(0, mouthOffsetY - mouthHeight, mouthWidth / 2.5, 0, Math.PI, false);
+    ctx.lineWidth = mouthHeight * 0.5;
+    ctx.stroke();
+  } else if (emotion === 'sad') {
+    // Draw a downward arc for a frown
+    ctx.arc(0, mouthOffsetY + mouthHeight, mouthWidth / 2.5, Math.PI, Math.PI * 2, false);
+    ctx.lineWidth = mouthHeight * 0.5;
+    ctx.stroke();
+  } else {
+    // Default neutral mouth
+    ctx.ellipse(
+      0,
+      mouthOffsetY,
+      mouthWidth / 2,
+      mouthHeight / 2,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
 
   ctx.restore();
 }
