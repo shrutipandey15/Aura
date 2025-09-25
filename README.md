@@ -112,8 +112,7 @@ This is a build-less application. You only need a simple local web server.
 
 2.  **Start a Local Server:**
     -   Navigate to the project's root directory in your terminal.
-    -   If you have Python 3, run: `python3 -m http.server`
-    -   If you have Node.js, run: `npx serve`
+    -   `npm run dev`
 
 3.  **Open the App:**
     -   Open your web browser and navigate to the local URL provided by your server (e.g., `http://localhost:8000` or `http://localhost:3000`).
